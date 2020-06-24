@@ -4,7 +4,17 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/rdsdataservice"
+	"github.com/aws/aws-sdk-go/service/rdsdataservice/rdsdataserviceiface"
 )
+
+type ProfileHandler struct {
+	client    rdsdataserviceiface.RDSDataServiceAPI
+	auroraArn *string
+	secretArn *string
+}
 
 type Profile struct {
 	FullName     string   `json:"full_name"`
@@ -16,7 +26,25 @@ type ProfileResponse struct {
 	ProfileID string `json:"profile_id"`
 }
 
-func profileHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProfileHandler) getProfiles() error {
+	log.Printf("Get data from DB\n")
+
+	params := &rdsdataservice.ExecuteStatementInput{
+		ResourceArn: h.auroraArn,
+		SecretArn:   h.secretArn,
+		Sql:         aws.String("SELECT * FROM database.profile"),
+	}
+	req, resp := h.client.ExecuteStatementRequest(params)
+	err := req.Send()
+	if err != nil {
+		log.Printf("Error fetching profiles: %s", err)
+		return err
+	}
+	log.Printf(resp.GoString())
+	return nil
+}
+
+func (h *ProfileHandler) HandleFunc(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.Error(w, "404 not found.", http.StatusNotFound)
 		return
@@ -26,7 +54,13 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		log.Printf("HTTP GET\n")
 		// get data from DB
-		log.Printf("Get data from DB\n")
+		err := h.getProfiles()
+		if err != nil {
+			log.Printf("Error fetching data: %s\n", err)
+			http.Error(w, "Something bad happend", http.StatusInternalServerError)
+			return
+		}
+
 		profiles := []Profile{{
 			FullName:     "full name",
 			Email:        "full@name.com",
