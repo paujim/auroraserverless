@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/rdsdataservice"
@@ -16,32 +17,86 @@ type ProfileHandler struct {
 	secretArn *string
 }
 
+const (
+	NAME  = 1
+	EMAIL = 2
+	PHONE = 3
+)
+
 type Profile struct {
+	ID           int64
 	FullName     string   `json:"full_name"`
 	Email        string   `json:"email"`
 	PhoneNumbers []string `json:"phone_numbers"`
 }
 
 type ProfileResponse struct {
-	ProfileID string `json:"profile_id"`
+	ProfileID int64 `json:"profile_id"`
 }
 
-func (h *ProfileHandler) getProfiles() error {
-	log.Printf("Get data from DB\n")
+func (h *ProfileHandler) insertProfile(profile *Profile) (*int64, error) {
+	log.Printf("Insert data to DB\n")
 
 	params := &rdsdataservice.ExecuteStatementInput{
 		ResourceArn: h.auroraArn,
 		SecretArn:   h.secretArn,
-		Sql:         aws.String("SELECT * FROM database.profile"),
+		Sql:         aws.String("INSERT INTO TestDB.Profiles (FullName, Email, Phone) VALUES (:name, :email, :phone);"),
+		Parameters: []*rdsdataservice.SqlParameter{
+			{
+				Name: aws.String("name"),
+				Value: &rdsdataservice.Field{
+					StringValue: aws.String(profile.FullName),
+				},
+			},
+			{
+				Name: aws.String("email"),
+				Value: &rdsdataservice.Field{
+					StringValue: aws.String(profile.Email),
+				},
+			},
+			{
+				Name: aws.String("phone"),
+				Value: &rdsdataservice.Field{
+					StringValue: aws.String(strings.Join(profile.PhoneNumbers, ";")),
+				},
+			},
+		},
 	}
 	req, resp := h.client.ExecuteStatementRequest(params)
 	err := req.Send()
 	if err != nil {
 		log.Printf("Error fetching profiles: %s", err)
-		return err
+		return nil, err
 	}
-	log.Printf(resp.GoString())
-	return nil
+	log.Printf("%s\n", resp.GoString())
+	return resp.GeneratedFields[0].LongValue, nil
+}
+
+func (h *ProfileHandler) getProfiles() ([]Profile, error) {
+	log.Printf("Get data from DB\n")
+
+	params := &rdsdataservice.ExecuteStatementInput{
+		ResourceArn: h.auroraArn,
+		SecretArn:   h.secretArn,
+		Sql:         aws.String("SELECT * FROM TestDB.Profiles"),
+	}
+	req, resp := h.client.ExecuteStatementRequest(params)
+	err := req.Send()
+	if err != nil {
+		log.Printf("Error fetching profiles: %s", err)
+		return nil, err
+	}
+
+	var profiles []Profile
+	for _, record := range resp.Records {
+		profiles = append(profiles, Profile{
+			ID:           *record[0].LongValue,
+			FullName:     *record[NAME].StringValue,
+			Email:        *record[EMAIL].StringValue,
+			PhoneNumbers: []string{*record[PHONE].StringValue},
+		})
+	}
+	return profiles, nil
 }
 
 func (h *ProfileHandler) HandleFunc(w http.ResponseWriter, r *http.Request) {
@@ -54,18 +109,12 @@ func (h *ProfileHandler) HandleFunc(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		log.Printf("HTTP GET\n")
 		// get data from DB
-		err := h.getProfiles()
+		profiles, err := h.getProfiles()
 		if err != nil {
 			log.Printf("Error fetching data: %s\n", err)
 			http.Error(w, "Something bad happend", http.StatusInternalServerError)
 			return
 		}
-
-		profiles := []Profile{{
-			FullName:     "full name",
-			Email:        "full@name.com",
-			PhoneNumbers: []string{"phone1", "phone2"},
-		}}
 		// Return json
 		log.Printf("Response: %v\n", profiles)
 		returnJSON(w, profiles, http.StatusOK)
@@ -84,9 +133,14 @@ func (h *ProfileHandler) HandleFunc(w http.ResponseWriter, r *http.Request) {
 		// Need to validate phone
 
 		// Save to DB
-		log.Printf("Put data in DB\n")
+		profileID, err := h.insertProfile(&profile)
+		if err != nil {
 
-		resp := ProfileResponse{"profile_id"}
+			log.Printf("Error inserting: %s\n", err)
+			http.Error(w, "Unable to add that user.", http.StatusBadRequest)
+			return
+		}
+		resp := ProfileResponse{ProfileID: *profileID}
 		// Return json
 		returnJSON(w, resp, http.StatusCreated)
 	default:
