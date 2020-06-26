@@ -13,7 +13,7 @@ const (
 )
 
 type Profile struct {
-	ID           int64
+	ID           int64    `json:"-"`
 	FullName     string   `json:"full_name"`
 	Email        string   `json:"email"`
 	PhoneNumbers []string `json:"phone_numbers"`
@@ -32,10 +32,10 @@ func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch r.Method {
-		case "GET":
+		case http.MethodGet:
 			log.Printf("HTTP GET\n")
 			// get data from DB
-			profiles, err := h.getProfiles()
+			profiles, err := h.GetProfiles()
 			if err != nil {
 				log.Printf("Error fetching data: %s\n", err)
 				http.Error(w, "Something bad happend", http.StatusInternalServerError)
@@ -45,7 +45,7 @@ func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Response: %v\n", profiles)
 			returnJSON(w, profiles, http.StatusOK)
 
-		case "POST":
+		case http.MethodPost:
 			log.Printf("HTTP POST\n")
 			var profile Profile
 			err := json.NewDecoder(r.Body).Decode(&profile)
@@ -59,7 +59,7 @@ func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 			// Need to validate phone
 
 			// Save to DB
-			profileID, err := h.insertProfile(&profile)
+			profileID, err := h.InsertProfile(&profile)
 			if err != nil {
 
 				log.Printf("Error inserting: %s\n", err)

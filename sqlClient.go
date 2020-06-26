@@ -6,16 +6,19 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/rdsdataservice"
-	"github.com/aws/aws-sdk-go/service/rdsdataservice/rdsdataserviceiface"
 )
 
+type DataServiceAPI interface {
+	ExecuteStatement(input *rdsdataservice.ExecuteStatementInput) (*rdsdataservice.ExecuteStatementOutput, error)
+}
+
 type SqlClient struct {
-	client    rdsdataserviceiface.RDSDataServiceAPI
+	client    DataServiceAPI
 	auroraArn *string
 	secretArn *string
 }
 
-func (c *SqlClient) insertProfile(profile *Profile) (*int64, error) {
+func (c *SqlClient) InsertProfile(profile *Profile) (*int64, error) {
 	log.Printf("Insert data to DB\n")
 
 	params := &rdsdataservice.ExecuteStatementInput{
@@ -43,8 +46,7 @@ func (c *SqlClient) insertProfile(profile *Profile) (*int64, error) {
 			},
 		},
 	}
-	req, resp := c.client.ExecuteStatementRequest(params)
-	err := req.Send()
+	resp, err := c.client.ExecuteStatement(params)
 	if err != nil {
 		log.Printf("Error fetching profiles: %s", err)
 		return nil, err
@@ -53,7 +55,7 @@ func (c *SqlClient) insertProfile(profile *Profile) (*int64, error) {
 	return resp.GeneratedFields[0].LongValue, nil
 }
 
-func (h *SqlClient) getProfiles() ([]Profile, error) {
+func (h *SqlClient) GetProfiles() ([]Profile, error) {
 	log.Printf("Get data from DB\n")
 
 	params := &rdsdataservice.ExecuteStatementInput{
@@ -61,8 +63,7 @@ func (h *SqlClient) getProfiles() ([]Profile, error) {
 		SecretArn:   h.secretArn,
 		Sql:         aws.String("SELECT * FROM TestDB.Profiles"),
 	}
-	req, resp := h.client.ExecuteStatementRequest(params)
-	err := req.Send()
+	resp, err := h.client.ExecuteStatement(params)
 	if err != nil {
 		log.Printf("Error fetching profiles: %s", err)
 		return nil, err
