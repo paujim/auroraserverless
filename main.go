@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/rdsdataservice"
 )
 
-var profileHandler *ProfileHandler
+var sqlClient *SqlClient
 
 func init() {
 	auroraArn := os.Getenv("AURORA_ARN")
@@ -17,13 +17,10 @@ func init() {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-
-	client := rdsdataservice.New(sess)
-
-	profileHandler = &ProfileHandler{client, aws.String(auroraArn), aws.String(secretArn)}
+	sqlClient = &SqlClient{rdsdataservice.New(sess), aws.String(auroraArn), aws.String(secretArn)}
 }
 
 func main() {
-	http.HandleFunc("/", profileHandler.HandleFunc)
+	http.HandleFunc("/", profileHandler(sqlClient))
 	http.ListenAndServe(":5000", nil)
 }
