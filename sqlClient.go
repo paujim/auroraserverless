@@ -18,30 +18,30 @@ type SqlClient struct {
 	secretArn *string
 }
 
-func (c *SqlClient) InsertProfile(profile *Profile) (*int64, error) {
+func (c *SqlClient) InsertProfile(fullName, email string, phoneNumbers []string) (*int64, error) {
 	log.Printf("Insert data to DB\n")
 
 	params := &rdsdataservice.ExecuteStatementInput{
 		ResourceArn: c.auroraArn,
 		SecretArn:   c.secretArn,
-		Sql:         aws.String("INSERT INTO TestDB.Profiles (FullName, Email, Phone) VALUES (:name, :email, :phone);"),
+		Sql:         aws.String("INSERT INTO TestDB.Profiles (FullName, Email, Phones) VALUES (:name, :email, :phones);"),
 		Parameters: []*rdsdataservice.SqlParameter{
 			{
 				Name: aws.String("name"),
 				Value: &rdsdataservice.Field{
-					StringValue: aws.String(profile.FullName),
+					StringValue: aws.String(fullName),
 				},
 			},
 			{
 				Name: aws.String("email"),
 				Value: &rdsdataservice.Field{
-					StringValue: aws.String(profile.Email),
+					StringValue: aws.String(email),
 				},
 			},
 			{
-				Name: aws.String("phone"),
+				Name: aws.String("phones"),
 				Value: &rdsdataservice.Field{
-					StringValue: aws.String(strings.Join(profile.PhoneNumbers, ";")),
+					StringValue: aws.String(strings.Join(phoneNumbers, ";")),
 				},
 			},
 		},
@@ -69,7 +69,7 @@ func (h *SqlClient) GetProfiles() ([]Profile, error) {
 		return nil, err
 	}
 
-	var profiles []Profile
+	profiles := []Profile{}
 	for _, record := range resp.Records {
 		profiles = append(profiles, Profile{
 			ID:           *record[0].LongValue,

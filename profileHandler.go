@@ -2,8 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"regexp"
+
+	"github.com/ttacon/libphonenumber"
 )
 
 const (
@@ -19,8 +23,11 @@ type Profile struct {
 	PhoneNumbers []string `json:"phone_numbers"`
 }
 
-type ProfileResponse struct {
-	ProfileID int64 `json:"profile_id"`
+type InsertProfileResponse struct {
+	ProfileID *int64 `json:"profile_id"`
+}
+type GetProfileResponse struct {
+	Profiles []Profile `json:"profiles"`
 }
 
 func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
@@ -38,12 +45,12 @@ func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 			profiles, err := h.GetProfiles()
 			if err != nil {
 				log.Printf("Error fetching data: %s\n", err)
-				http.Error(w, "Something bad happend", http.StatusInternalServerError)
+				http.Error(w, "Error fetching data", http.StatusInternalServerError)
 				return
 			}
 			// Return json
 			log.Printf("Response: %v\n", profiles)
-			returnJSON(w, profiles, http.StatusOK)
+			returnJSON(w, GetProfileResponse{Profiles: profiles}, http.StatusOK)
 
 		case http.MethodPost:
 			log.Printf("HTTP POST\n")
@@ -56,23 +63,41 @@ func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Printf("Request Body: %v\n", profile)
-			// Need to validate phone
-
-			// Save to DB
-			profileID, err := h.InsertProfile(&profile)
-			if err != nil {
-
-				log.Printf("Error inserting: %s\n", err)
-				http.Error(w, "Unable to add that user.", http.StatusBadRequest)
+			if !IsValidEmail(profile.Email) {
+				log.Printf("Not valid email: %s\n", profile.Email)
+				http.Error(w, fmt.Sprintf("Invalid email [%s].", profile.Email), http.StatusBadRequest)
 				return
 			}
-			resp := ProfileResponse{ProfileID: *profileID}
+
+			formatedPhones := []string{}
+			for _, phone := range profile.PhoneNumbers {
+				num, err := libphonenumber.Parse(phone, "AU")
+				if err != nil || !libphonenumber.IsValidNumber(num) {
+					log.Printf("Not a valid phone: %s\n", phone)
+					http.Error(w, fmt.Sprintf("Invalid phone [%s].", phone), http.StatusBadRequest)
+					return
+				}
+				formatedPhones = append(formatedPhones, libphonenumber.Format(num, libphonenumber.E164))
+			}
+
+			// Save to DB
+			profileID, err := h.InsertProfile(profile.FullName, profile.Email, formatedPhones)
+			if err != nil {
+				log.Printf("Error inserting: %s\n", err)
+				http.Error(w, "Unable to add the profile.", http.StatusBadRequest)
+				return
+			}
 			// Return json
-			returnJSON(w, resp, http.StatusCreated)
+			returnJSON(w, InsertProfileResponse{ProfileID: profileID}, http.StatusCreated)
 		default:
 			http.Error(w, "Only GET and POST methods are supported.", http.StatusBadRequest)
 		}
 	}
+}
+
+func IsValidEmail(email string) bool {
+	re := regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+	return re.MatchString(email)
 }
 
 func returnJSON(w http.ResponseWriter, jsonObj interface{}, statusCode int) {

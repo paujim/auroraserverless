@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestGetRoute(t *testing.T) {
+func TestGet(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "/", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -21,7 +21,7 @@ func TestGetRoute(t *testing.T) {
 	mockDS := &MockDataService{}
 	output := &rdsdataservice.ExecuteStatementOutput{Records: [][]*rdsdataservice.Field{
 		{
-			{LongValue: aws.Int64(1)}, {StringValue: aws.String("NAME")}, {StringValue: aws.String("EMAIL")}, {StringValue: aws.String("PHONE1")},
+			{LongValue: aws.Int64(1)}, {StringValue: aws.String("alex")}, {StringValue: aws.String("alex@email.com")}, {StringValue: aws.String("+61491570156")},
 		},
 	}}
 	mockDS.On("ExecuteStatement", mock.Anything).Return(output, nil)
@@ -31,12 +31,12 @@ func TestGetRoute(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
-	expected := `[{"full_name":"NAME","email":"EMAIL","phone_numbers":["PHONE1"]}]`
+	expected := `{"profiles":[{"full_name":"alex","email":"alex@email.com","phone_numbers":["+61491570156"]}]}`
 	assert.Equal(t, expected, rec.Body.String())
 }
 
-func TestPostRoute(t *testing.T) {
-	req, err := http.NewRequest(http.MethodPost, "/", strings.NewReader(`{"full_name": "NAME","email": "EMAIL","phone_numbers": ["phone1","phone2"]}`))
+func TestPost(t *testing.T) {
+	req, err := http.NewRequest(http.MethodPost, "/", strings.NewReader(`{"full_name": "hugo","email": "hugo@email.com","phone_numbers": ["61 491 570 156","61 491 570 157"]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,4 +52,30 @@ func TestPostRoute(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, rec.Code)
 	expected := `{"profile_id":1000}`
 	assert.Equal(t, expected, rec.Body.String())
+}
+
+func TestPostWithInvalidEmail(t *testing.T) {
+	req, err := http.NewRequest(http.MethodPost, "/", strings.NewReader(`{"full_name": "hugo","email": "bad email","phone_numbers": ["0491 570 156","0491 570 156"]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mockClient := &SqlClient{&MockDataService{}, aws.String("arn"), aws.String("secret")}
+	rec := httptest.NewRecorder()
+	handler := http.HandlerFunc(profileHandler(mockClient))
+	handler.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, "Invalid email [bad email].\n", rec.Body.String())
+}
+
+func TestPostWithInvalidPhone(t *testing.T) {
+	req, err := http.NewRequest(http.MethodPost, "/", strings.NewReader(`{"full_name": "hugo","email": "some@email.com","phone_numbers": ["+61491570156","9999 99491570 156"]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mockClient := &SqlClient{&MockDataService{}, aws.String("arn"), aws.String("secret")}
+	rec := httptest.NewRecorder()
+	handler := http.HandlerFunc(profileHandler(mockClient))
+	handler.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, "Invalid phone [9999 99491570 156].\n", rec.Body.String())
 }

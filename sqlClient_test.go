@@ -58,10 +58,7 @@ func TestDataService(t *testing.T) {
 		}}
 		mockDS.On("ExecuteStatement", mock.Anything).Return(output, nil)
 		client := SqlClient{mockDS, aws.String("arn"), aws.String("secret")}
-		id, err := client.InsertProfile(&Profile{
-			FullName:     "NAME",
-			Email:        "EMAIL",
-			PhoneNumbers: []string{"PHONE"}})
+		id, err := client.InsertProfile("NAME", "EMAIL", []string{"PHONE"})
 		assert.NoError(t, err)
 		assert.Equal(t, *profileId, *id)
 		mockDS.AssertExpectations(t)
@@ -71,10 +68,7 @@ func TestDataService(t *testing.T) {
 		mockDS := &MockDataService{}
 		mockDS.On("ExecuteStatement", mock.Anything).Return(nil, errors.New("Some Error"))
 		client := SqlClient{mockDS, aws.String("arn"), aws.String("secret")}
-		_, err := client.InsertProfile(&Profile{
-			FullName:     "NAME",
-			Email:        "EMAIL",
-			PhoneNumbers: []string{"PHONE"}})
+		_, err := client.InsertProfile("NAME", "EMAIL", []string{"PHONE"})
 		assert.Error(t, err, "Some Error")
 		mockDS.AssertExpectations(t)
 	})
