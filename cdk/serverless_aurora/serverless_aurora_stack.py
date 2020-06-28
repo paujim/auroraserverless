@@ -50,6 +50,7 @@ class ServerlessAuroraStack(core.Stack):
                 "password").to_string(),
             engine="aurora",
             engine_mode="serverless",
+            enable_http_endpoint=True,
             scaling_configuration=rds.CfnDBCluster.ScalingConfigurationProperty(
                 auto_pause=True,
                 min_capacity=4,
