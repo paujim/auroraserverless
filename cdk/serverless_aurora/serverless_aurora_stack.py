@@ -105,3 +105,9 @@ class ServerlessAuroraStack(core.Stack):
             id="aurora-arn",
             value=f"arn:aws:rds:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}:cluster:{cfn_cluster.ref}"
         )
+
+        core.CfnOutput(
+            scope=self,
+            id="secret-arn",
+            value=templated_secret.secret_arn
+        )
