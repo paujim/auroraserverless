@@ -1,8 +1,12 @@
 import json
+import os
 from aws_cdk import (
+    aws_iam as iam,
     aws_ec2 as ec2,
     aws_rds as rds,
     aws_secretsmanager as secretsmanager,
+    aws_lambda as _lambda,
+    aws_cloudformation as cfn,
     core,
 )
 
@@ -17,6 +21,29 @@ class ServerlessAuroraStack(core.Stack):
             id="aurora-VPC",
             cidr="10.10.0.0/16"
         )
+
+        on_event = _lambda.Function(
+            scope=self,
+            id="aurora-lambda",
+            code=_lambda.Code.from_asset(
+                os.path.join('lambda')),
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            handler="aurora.on_event",
+            timeout=core.Duration.minutes(amount=3),
+            vpc=vpc,
+        )
+        on_event.add_to_role_policy(statement=iam.PolicyStatement(
+            actions=["rds-data:*"],
+            resources=["*"]
+        ))
+        on_event.add_to_role_policy(statement=iam.PolicyStatement(
+            actions=["secretsmanager:Get*"],
+            resources=["*"]
+        ))
+        on_event.add_to_role_policy(statement=iam.PolicyStatement(
+            actions=["kms:Decrypt"],
+            resources=["*"]
+        ))
 
         templated_secret = secretsmanager.Secret(
             scope=self,
@@ -60,6 +87,18 @@ class ServerlessAuroraStack(core.Stack):
             deletion_protection=False,
             db_subnet_group_name=cfn_db_subnets.ref,
         )
+
+        # resource = cfn.CustomResource(
+        #     scope=self,
+        #     id="Resource",
+        #     provider=cfn.CustomResourceProvider.from_lambda(on_event),
+        #     properties={
+        #         "AuroraArn": f"arn:aws:rds:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}:cluster:{cfn_cluster.ref}",
+        #         "SecretArn": templated_secret.secret_arn,
+        #         "Sql": "CREATE DATABASE TestDB; CREATE TABLE IF NOT EXISTS TestDB.Profiles ( ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY, FullName VARCHAR (50) NOT NULL, Email VARCHAR (255) NOT NULL UNIQUE, Phones VARCHAR (255) NOT NULL);"
+        #     },
+        # )
+        # resource.node.add_dependency(cfn_cluster)
 
         core.CfnOutput(
             scope=self,

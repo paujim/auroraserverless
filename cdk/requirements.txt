@@ -1,4 +1,7 @@
-aws-cdk.core==1.46.0
-aws-cdk.aws-ec2==1.46.0
-aws-cdk.aws-rds==1.46.0
-aws-cdk.aws-secretsmanager==1.46.0
+aws-cdk.core==1.47.0
+aws-cdk.aws-ec2==1.47.0
+aws-cdk.aws-rds==1.47.0
+aws-cdk.aws-secretsmanager==1.47.0
+aws-cdk.aws-iam==1.47.0
+aws-cdk.aws-lambda==1.47.0
+aws-cdk.aws-cloudformation==1.47.0
