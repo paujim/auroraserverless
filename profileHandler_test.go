@@ -64,7 +64,7 @@ func TestPostWithInvalidEmail(t *testing.T) {
 	handler := http.HandlerFunc(profileHandler(mockClient))
 	handler.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assert.Equal(t, "Invalid email [bad email].\n", rec.Body.String())
+	assert.Equal(t, `{"error":"Invalid email [bad email]."}`, rec.Body.String())
 }
 
 func TestPostWithInvalidPhone(t *testing.T) {
@@ -77,5 +77,5 @@ func TestPostWithInvalidPhone(t *testing.T) {
 	handler := http.HandlerFunc(profileHandler(mockClient))
 	handler.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assert.Equal(t, "Invalid phone [9999 99491570 156].\n", rec.Body.String())
+	assert.Equal(t, `{"error":"Invalid phone [some@email.com]."}`, rec.Body.String())
 }

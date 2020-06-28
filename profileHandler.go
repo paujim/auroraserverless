@@ -30,6 +30,10 @@ type GetProfileResponse struct {
 	Profiles []Profile `json:"profiles"`
 }
 
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
 func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -45,9 +49,10 @@ func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 			profiles, err := h.GetProfiles()
 			if err != nil {
 				log.Printf("Error fetching data: %s\n", err)
-				http.Error(w, "Error fetching data", http.StatusInternalServerError)
+				returnJSON(w, ErrorResponse{Error: "Error fetching data"}, http.StatusServiceUnavailable)
 				return
 			}
+
 			// Return json
 			log.Printf("Response: %v\n", profiles)
 			returnJSON(w, GetProfileResponse{Profiles: profiles}, http.StatusOK)
@@ -59,13 +64,13 @@ func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 			// Validate
 			if err != nil {
 				log.Printf("Error decoding: %s\n", err)
-				http.Error(w, "Bad Request.", http.StatusBadRequest)
+				returnJSON(w, ErrorResponse{Error: "Bad Request"}, http.StatusBadRequest)
 				return
 			}
 			log.Printf("Request Body: %v\n", profile)
 			if !IsValidEmail(profile.Email) {
 				log.Printf("Not valid email: %s\n", profile.Email)
-				http.Error(w, fmt.Sprintf("Invalid email [%s].", profile.Email), http.StatusBadRequest)
+				returnJSON(w, ErrorResponse{Error: fmt.Sprintf("Invalid email [%s].", profile.Email)}, http.StatusBadRequest)
 				return
 			}
 
@@ -74,7 +79,7 @@ func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 				num, err := libphonenumber.Parse(phone, "AU")
 				if err != nil || !libphonenumber.IsValidNumber(num) {
 					log.Printf("Not a valid phone: %s\n", phone)
-					http.Error(w, fmt.Sprintf("Invalid phone [%s].", phone), http.StatusBadRequest)
+					returnJSON(w, ErrorResponse{Error: fmt.Sprintf("Invalid phone [%s].", profile.Email)}, http.StatusBadRequest)
 					return
 				}
 				formatedPhones = append(formatedPhones, libphonenumber.Format(num, libphonenumber.E164))
@@ -84,13 +89,13 @@ func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 			profileID, err := h.InsertProfile(profile.FullName, profile.Email, formatedPhones)
 			if err != nil {
 				log.Printf("Error inserting: %s\n", err)
-				http.Error(w, "Unable to add the profile.", http.StatusBadRequest)
+				returnJSON(w, ErrorResponse{Error: "Unable to add the profile."}, http.StatusBadRequest)
 				return
 			}
 			// Return json
 			returnJSON(w, InsertProfileResponse{ProfileID: profileID}, http.StatusCreated)
 		default:
-			http.Error(w, "Only GET and POST methods are supported.", http.StatusBadRequest)
+			returnJSON(w, ErrorResponse{Error: "Only GET and POST methods are supported."}, http.StatusBadRequest)
 		}
 	}
 }
@@ -106,7 +111,8 @@ func returnJSON(w http.ResponseWriter, jsonObj interface{}, statusCode int) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	w.Write(js)
 }

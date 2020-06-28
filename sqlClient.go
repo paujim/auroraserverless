@@ -75,7 +75,7 @@ func (h *SqlClient) GetProfiles() ([]Profile, error) {
 			ID:           *record[0].LongValue,
 			FullName:     *record[NAME].StringValue,
 			Email:        *record[EMAIL].StringValue,
-			PhoneNumbers: []string{*record[PHONE].StringValue},
+			PhoneNumbers: strings.Split(*record[PHONE].StringValue, ";"),
 		})
 	}
 	return profiles, nil
