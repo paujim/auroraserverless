@@ -1,0 +1,11 @@
+CREATE DATABASE TestDB;
+
+CREATE TABLE IF NOT EXISTS TestDB.Profiles (
+    ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    FullName VARCHAR (50) NOT NULL,
+    Email VARCHAR (255) NOT NULL UNIQUE,
+    Phones VARCHAR (255) NOT NULL
+);
+
+
+INSERT INTO TestDB.Profiles (FullName, Email, Phones) VALUES (:name, :email, :phones);
