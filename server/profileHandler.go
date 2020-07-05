@@ -17,10 +17,10 @@ const (
 )
 
 type Profile struct {
-	ID           int64    `json:"-"`
-	FullName     string   `json:"full_name"`
-	Email        string   `json:"email"`
-	PhoneNumbers []string `json:"phone_numbers"`
+	ID          int64  `json:"-"`
+	FullName    string `json:"full_name"`
+	Email       string `json:"email"`
+	PhoneNumber string `json:"phone_number"`
 }
 
 type InsertProfileResponse struct {
@@ -74,19 +74,16 @@ func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			formatedPhones := []string{}
-			for _, phone := range profile.PhoneNumbers {
-				num, err := libphonenumber.Parse(phone, "AU")
-				if err != nil || !libphonenumber.IsValidNumber(num) {
-					log.Printf("Not a valid phone: %s\n", phone)
-					returnJSON(w, ErrorResponse{Error: fmt.Sprintf("Invalid phone [%s].", profile.Email)}, http.StatusBadRequest)
-					return
-				}
-				formatedPhones = append(formatedPhones, libphonenumber.Format(num, libphonenumber.E164))
+			num, err := libphonenumber.Parse(profile.PhoneNumber, "AU")
+			if err != nil || !libphonenumber.IsValidNumber(num) {
+				log.Printf("Not a valid phone: %s\n", profile.PhoneNumber)
+				returnJSON(w, ErrorResponse{Error: fmt.Sprintf("Invalid phone [%s].", profile.PhoneNumber)}, http.StatusBadRequest)
+				return
 			}
+			formatedPhone := libphonenumber.Format(num, libphonenumber.E164)
 
 			// Save to DB
-			profileID, err := h.InsertProfile(profile.FullName, profile.Email, formatedPhones)
+			profileID, err := h.InsertProfile(profile.FullName, profile.Email, formatedPhone)
 			if err != nil {
 				log.Printf("Error inserting: %s\n", err)
 				returnJSON(w, ErrorResponse{Error: "Unable to add the profile."}, http.StatusBadRequest)

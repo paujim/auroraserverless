@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/rdsdataservice"
@@ -18,13 +17,13 @@ type SqlClient struct {
 	secretArn *string
 }
 
-func (c *SqlClient) InsertProfile(fullName, email string, phoneNumbers []string) (*int64, error) {
+func (c *SqlClient) InsertProfile(fullName, email, phoneNumber string) (*int64, error) {
 	log.Printf("Insert data to DB\n")
 
 	params := &rdsdataservice.ExecuteStatementInput{
 		ResourceArn: c.auroraArn,
 		SecretArn:   c.secretArn,
-		Sql:         aws.String("INSERT INTO TestDB.Profiles (FullName, Email, Phones) VALUES (:name, :email, :phones);"),
+		Sql:         aws.String("INSERT INTO TestDB.Profiles (FullName, Email, Phone) VALUES (:name, :email, :phone);"),
 		Parameters: []*rdsdataservice.SqlParameter{
 			{
 				Name: aws.String("name"),
@@ -39,9 +38,9 @@ func (c *SqlClient) InsertProfile(fullName, email string, phoneNumbers []string)
 				},
 			},
 			{
-				Name: aws.String("phones"),
+				Name: aws.String("phone"),
 				Value: &rdsdataservice.Field{
-					StringValue: aws.String(strings.Join(phoneNumbers, ";")),
+					StringValue: aws.String(phoneNumber),
 				},
 			},
 		},
@@ -72,10 +71,10 @@ func (h *SqlClient) GetProfiles() ([]Profile, error) {
 	profiles := []Profile{}
 	for _, record := range resp.Records {
 		profiles = append(profiles, Profile{
-			ID:           *record[0].LongValue,
-			FullName:     *record[NAME].StringValue,
-			Email:        *record[EMAIL].StringValue,
-			PhoneNumbers: strings.Split(*record[PHONE].StringValue, ";"),
+			ID:          *record[0].LongValue,
+			FullName:    *record[NAME].StringValue,
+			Email:       *record[EMAIL].StringValue,
+			PhoneNumber: *record[PHONE].StringValue,
 		})
 	}
 	return profiles, nil

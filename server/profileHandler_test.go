@@ -31,12 +31,12 @@ func TestGet(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
-	expected := `{"profiles":[{"full_name":"alex","email":"alex@email.com","phone_numbers":["+61491570156"]}]}`
+	expected := `{"profiles":[{"full_name":"alex","email":"alex@email.com","phone_number":"+61491570156"}]}`
 	assert.Equal(t, expected, rec.Body.String())
 }
 
 func TestPost(t *testing.T) {
-	req, err := http.NewRequest(http.MethodPost, "/", strings.NewReader(`{"full_name": "hugo","email": "hugo@email.com","phone_numbers": ["61 491 570 156","61 491 570 157"]}`))
+	req, err := http.NewRequest(http.MethodPost, "/", strings.NewReader(`{"full_name": "hugo","email": "hugo@email.com","phone_number": "61 491 570 157"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestPost(t *testing.T) {
 }
 
 func TestPostWithInvalidEmail(t *testing.T) {
-	req, err := http.NewRequest(http.MethodPost, "/", strings.NewReader(`{"full_name": "hugo","email": "bad email","phone_numbers": ["0491 570 156","0491 570 156"]}`))
+	req, err := http.NewRequest(http.MethodPost, "/", strings.NewReader(`{"full_name": "hugo","email": "bad email","phone_number": "0491 570 156"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestPostWithInvalidEmail(t *testing.T) {
 }
 
 func TestPostWithInvalidPhone(t *testing.T) {
-	req, err := http.NewRequest(http.MethodPost, "/", strings.NewReader(`{"full_name": "hugo","email": "some@email.com","phone_numbers": ["+61491570156","9999 99491570 156"]}`))
+	req, err := http.NewRequest(http.MethodPost, "/", strings.NewReader(`{"full_name": "hugo","email": "some@email.com","phone_number": "9999 99491570 156"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,5 +77,5 @@ func TestPostWithInvalidPhone(t *testing.T) {
 	handler := http.HandlerFunc(profileHandler(mockClient))
 	handler.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assert.Equal(t, `{"error":"Invalid phone [some@email.com]."}`, rec.Body.String())
+	assert.Equal(t, `{"error":"Invalid phone [9999 99491570 156]."}`, rec.Body.String())
 }
