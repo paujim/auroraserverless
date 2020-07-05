@@ -70,6 +70,7 @@ class ServerlessAuroraStack(core.Stack):
         cfn_cluster = rds.CfnDBCluster(
             scope=self,
             id="db-cluster",
+            database_name="TestDB",
             db_cluster_identifier="serverless-cluster",
             master_username=templated_secret.secret_value_from_json(
                 "username").to_string(),
@@ -87,18 +88,6 @@ class ServerlessAuroraStack(core.Stack):
             deletion_protection=False,
             db_subnet_group_name=cfn_db_subnets.ref,
         )
-
-        # resource = cfn.CustomResource(
-        #     scope=self,
-        #     id="Resource",
-        #     provider=cfn.CustomResourceProvider.from_lambda(on_event),
-        #     properties={
-        #         "AuroraArn": f"arn:aws:rds:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}:cluster:{cfn_cluster.ref}",
-        #         "SecretArn": templated_secret.secret_arn,
-        #         "Sql": "CREATE DATABASE TestDB; CREATE TABLE IF NOT EXISTS TestDB.Profiles ( ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY, FullName VARCHAR (50) NOT NULL, Email VARCHAR (255) NOT NULL UNIQUE, Phones VARCHAR (255) NOT NULL);"
-        #     },
-        # )
-        # resource.node.add_dependency(cfn_cluster)
 
         core.CfnOutput(
             scope=self,

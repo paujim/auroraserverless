@@ -10,14 +10,6 @@ import IconButton from '@material-ui/core/IconButton';
 import CloseIcon from '@material-ui/icons/Close';
 
 
-function Note() {
-  return (
-    <Typography variant="body2" color="textSecondary" align="center">
-      {'To enter multiple phone numbers use ; to separate them'}
-    </Typography>
-  );
-}
-
 export default function App() {
   const [error, setError] = React.useState(null);
 
@@ -53,7 +45,6 @@ export default function App() {
           }
         />
       </Container>
-      <Note />
     </Box>
   );
 }

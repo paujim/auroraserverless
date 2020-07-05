@@ -1,8 +1,5 @@
 import React from 'react';
 import MaterialTable from 'material-table';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemText from '@material-ui/core/ListItemText';
 import axios from 'axios'
 
 export default function ProfilesTable(prop) {
@@ -25,17 +22,8 @@ export default function ProfilesTable(prop) {
           field: 'email'
         },
         {
-          title: 'Phone Numbers',
-          field: 'phone_numbers',
-          render: rowData => {
-            return (
-              <List>{rowData.phone_numbers.map(phone => (
-                <ListItem>
-                  <ListItemText primary={phone} />
-                </ListItem>
-              ))}
-              </List>)
-          },
+          title: 'Phone Number',
+          field: 'phone_number',
         },
       ]}
       data={query =>
@@ -67,8 +55,6 @@ export default function ProfilesTable(prop) {
         isEditable: (row) => false,
         onRowAdd: (newData) =>
           new Promise((resolve, reject) => {
-            let phoneNumbers = newData.phone_numbers.split(";")
-            newData.phone_numbers = phoneNumbers;
             let url = 'http://localhost:5000/'
             axios.post(url, JSON.stringify(newData))
               .then(response => {
