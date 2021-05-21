@@ -1,4 +1,4 @@
-module auroraServerless
+module paujim/auroraserverless/server
 
 go 1.14
 

@@ -1,23 +1,37 @@
-package main
+package repositories
 
 import (
 	"log"
+	"paujim/auroraserverless/server/entities"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/rdsdataservice"
 )
 
-type DataServiceAPI interface {
+type SqlRepository interface {
+	InsertProfile(fullName, email, phoneNumber string) (*int64, error)
+	GetProfiles() ([]entities.Profile, error)
+}
+
+type DataAPI interface {
 	ExecuteStatement(input *rdsdataservice.ExecuteStatementInput) (*rdsdataservice.ExecuteStatementOutput, error)
 }
 
-type SqlClient struct {
-	client    DataServiceAPI
+type sqlRepository struct {
+	dataAPI   DataAPI
 	auroraArn *string
 	secretArn *string
 }
 
-func (c *SqlClient) InsertProfile(fullName, email, phoneNumber string) (*int64, error) {
+func NewSqlRepository(auroraArn, secretArn *string, dataAPI DataAPI) SqlRepository {
+	return &sqlRepository{
+		auroraArn: auroraArn,
+		secretArn: secretArn,
+		dataAPI:   dataAPI,
+	}
+}
+
+func (c *sqlRepository) InsertProfile(fullName, email, phoneNumber string) (*int64, error) {
 	log.Printf("Insert data to DB\n")
 
 	params := &rdsdataservice.ExecuteStatementInput{
@@ -45,7 +59,7 @@ func (c *SqlClient) InsertProfile(fullName, email, phoneNumber string) (*int64, 
 			},
 		},
 	}
-	resp, err := c.client.ExecuteStatement(params)
+	resp, err := c.dataAPI.ExecuteStatement(params)
 	if err != nil {
 		log.Printf("Error fetching profiles: %s", err)
 		return nil, err
@@ -54,7 +68,7 @@ func (c *SqlClient) InsertProfile(fullName, email, phoneNumber string) (*int64, 
 	return resp.GeneratedFields[0].LongValue, nil
 }
 
-func (h *SqlClient) GetProfiles() ([]Profile, error) {
+func (h *sqlRepository) GetProfiles() ([]entities.Profile, error) {
 	log.Printf("Get data from DB\n")
 
 	params := &rdsdataservice.ExecuteStatementInput{
@@ -62,19 +76,19 @@ func (h *SqlClient) GetProfiles() ([]Profile, error) {
 		SecretArn:   h.secretArn,
 		Sql:         aws.String("SELECT * FROM TestDB.Profiles"),
 	}
-	resp, err := h.client.ExecuteStatement(params)
+	resp, err := h.dataAPI.ExecuteStatement(params)
 	if err != nil {
 		log.Printf("Error fetching profiles: %s", err)
 		return nil, err
 	}
 
-	profiles := []Profile{}
+	profiles := []entities.Profile{}
 	for _, record := range resp.Records {
-		profiles = append(profiles, Profile{
+		profiles = append(profiles, entities.Profile{
 			ID:          *record[0].LongValue,
-			FullName:    *record[NAME].StringValue,
-			Email:       *record[EMAIL].StringValue,
-			PhoneNumber: *record[PHONE].StringValue,
+			FullName:    *record[entities.NAME].StringValue,
+			Email:       *record[entities.EMAIL].StringValue,
+			PhoneNumber: *record[entities.PHONE].StringValue,
 		})
 	}
 	return profiles, nil

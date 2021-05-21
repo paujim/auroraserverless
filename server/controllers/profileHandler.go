@@ -1,40 +1,29 @@
-package main
+package controllers
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"paujim/auroraserverless/server/entities"
+	"paujim/auroraserverless/server/repositories"
 	"regexp"
 
 	"github.com/ttacon/libphonenumber"
 )
 
-const (
-	NAME  = 1
-	EMAIL = 2
-	PHONE = 3
-)
-
-type Profile struct {
-	ID          int64  `json:"-"`
-	FullName    string `json:"full_name"`
-	Email       string `json:"email"`
-	PhoneNumber string `json:"phone_number"`
-}
-
 type InsertProfileResponse struct {
 	ProfileID *int64 `json:"profile_id"`
 }
 type GetProfileResponse struct {
-	Profiles []Profile `json:"profiles"`
+	Profiles []entities.Profile `json:"profiles"`
 }
 
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
+func ProfileHandler(h repositories.SqlRepository) func(w http.ResponseWriter, r *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
@@ -59,7 +48,7 @@ func profileHandler(h *SqlClient) func(w http.ResponseWriter, r *http.Request) {
 
 		case http.MethodPost:
 			log.Printf("HTTP POST\n")
-			var profile Profile
+			var profile entities.Profile
 			err := json.NewDecoder(r.Body).Decode(&profile)
 			// Validate
 			if err != nil {

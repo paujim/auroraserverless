@@ -3,13 +3,15 @@ package main
 import (
 	"net/http"
 	"os"
+	"paujim/auroraserverless/server/controllers"
+	"paujim/auroraserverless/server/repositories"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/rdsdataservice"
 )
 
-var sqlClient *SqlClient
+var repo repositories.SqlRepository
 
 func init() {
 	auroraArn := os.Getenv("AURORA_ARN")
@@ -17,10 +19,10 @@ func init() {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-	sqlClient = &SqlClient{rdsdataservice.New(sess), aws.String(auroraArn), aws.String(secretArn)}
+	repo = repositories.NewSqlRepository(aws.String(auroraArn), aws.String(secretArn), rdsdataservice.New(sess))
 }
 
 func main() {
-	http.HandleFunc("/", profileHandler(sqlClient))
+	http.HandleFunc("/", controllers.ProfileHandler(repo))
 	http.ListenAndServe(":5000", nil)
 }

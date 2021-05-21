@@ -1,16 +1,37 @@
-package main
+package controllers
 
 import (
 	"net/http"
 	"net/http/httptest"
+	"paujim/auroraserverless/server/entities"
 	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/rdsdataservice"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+type MockRepository struct {
+	mock.Mock
+}
+
+func (m *MockRepository) InsertProfile(fullName, email, phoneNumber string) (*int64, error) {
+	args := m.Called(fullName, email, phoneNumber)
+	var resp *int64
+	if args.Get(0) != nil {
+		resp = args.Get(0).(*int64)
+	}
+	return resp, args.Error(1)
+}
+func (m *MockRepository) GetProfiles() ([]entities.Profile, error) {
+	args := m.Called()
+	var resp []entities.Profile
+	if args.Get(0) != nil {
+		resp = args.Get(0).([]entities.Profile)
+	}
+	return resp, args.Error(1)
+}
 
 func TestGet(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "/", nil)
@@ -18,16 +39,17 @@ func TestGet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mockDS := &MockDataService{}
-	output := &rdsdataservice.ExecuteStatementOutput{Records: [][]*rdsdataservice.Field{
+	mockRepo := &MockRepository{}
+	mockRepo.On("GetProfiles").Return([]entities.Profile{
 		{
-			{LongValue: aws.Int64(1)}, {StringValue: aws.String("alex")}, {StringValue: aws.String("alex@email.com")}, {StringValue: aws.String("+61491570156")},
+			ID:          1,
+			FullName:    "alex",
+			Email:       "alex@email.com",
+			PhoneNumber: "+61491570156",
 		},
-	}}
-	mockDS.On("ExecuteStatement", mock.Anything).Return(output, nil)
-	mockClient := &SqlClient{mockDS, aws.String("arn"), aws.String("secret")}
+	}, nil)
 	rec := httptest.NewRecorder()
-	handler := http.HandlerFunc(profileHandler(mockClient))
+	handler := http.HandlerFunc(ProfileHandler(mockRepo))
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -40,14 +62,10 @@ func TestPost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mockDS := &MockDataService{}
-	output := &rdsdataservice.ExecuteStatementOutput{GeneratedFields: []*rdsdataservice.Field{
-		{LongValue: aws.Int64(1000)},
-	}}
-	mockDS.On("ExecuteStatement", mock.Anything).Return(output, nil)
-	mockClient := &SqlClient{mockDS, aws.String("arn"), aws.String("secret")}
+	mockRepo := &MockRepository{}
+	mockRepo.On("InsertProfile", mock.Anything, mock.Anything, mock.Anything).Return(aws.Int64(1000), nil)
 	rec := httptest.NewRecorder()
-	handler := http.HandlerFunc(profileHandler(mockClient))
+	handler := http.HandlerFunc(ProfileHandler(mockRepo))
 	handler.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusCreated, rec.Code)
 	expected := `{"profile_id":1000}`
@@ -59,9 +77,9 @@ func TestPostWithInvalidEmail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mockClient := &SqlClient{&MockDataService{}, aws.String("arn"), aws.String("secret")}
+	mockRepo := &MockRepository{}
 	rec := httptest.NewRecorder()
-	handler := http.HandlerFunc(profileHandler(mockClient))
+	handler := http.HandlerFunc(ProfileHandler(mockRepo))
 	handler.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Equal(t, `{"error":"Invalid email [bad email]."}`, rec.Body.String())
@@ -72,9 +90,9 @@ func TestPostWithInvalidPhone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mockClient := &SqlClient{&MockDataService{}, aws.String("arn"), aws.String("secret")}
+	mockRepo := &MockRepository{}
 	rec := httptest.NewRecorder()
-	handler := http.HandlerFunc(profileHandler(mockClient))
+	handler := http.HandlerFunc(ProfileHandler(mockRepo))
 	handler.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Equal(t, `{"error":"Invalid phone [9999 99491570 156]."}`, rec.Body.String())
